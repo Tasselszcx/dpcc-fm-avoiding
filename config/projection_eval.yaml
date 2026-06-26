@@ -1,0 +1,118 @@
+# General
+write_to_file: True
+exps: [
+  'avoiding-synthetic',      # DDPM baseline (K=20)
+  'avoiding-synthetic-fm',   # Flow Matching (K=20)
+  ]
+seeds: [0, 1, 2]
+avoiding_halfspace_variants: [
+  'top-right-hard',    # /
+  'top-left-hard',    # \
+  'both-hard',    # / and \
+  ]   # 'top-right: /', 'top-left: \'
+n_trials: 50
+
+dt: {
+  'avoiding': 1,    # Since a = [delta_x, delta_y] and not [vx, vy]
+}
+observation_indices: {
+  'avoiding': {'x_des': 0, 'y_des': 1, 'x': 2, 'y': 3},
+}
+
+action_indices: {
+  'avoiding': {'vx': 0, 'vy': 1},
+}
+
+# Policy
+diffusion_timestep_threshold: 0.5
+
+# Projection 
+projection_scipy_maxiter: 100
+flow_matching_project_every: 1
+projection_variants: [
+  # 快速验证：只跑核心变体
+  'diffuser',              # 基线：无约束投影
+  'dpcc-c-tightened',      # DPCC 核心方法
+  'post_processing',       # 后处理对比
+  # --- 以下为完整评估时取消注释 ---
+  # 'dpcc-r',
+  # 'dpcc-r-tightened',
+  # 'dpcc-c',
+  # 'dpcc-t',
+  # 'dpcc-t-tightened',
+  # 'gradient',
+  # 'gradient-tightened',
+  # 'post_processing-tightened',
+  # 'model_free',
+  # 'model_free-tightened',
+  # 'dpcc-c-tightened-dt0p25',
+  # 'dpcc-c-tightened-dt0p5',
+  # 'dpcc-c-tightened-dt2p0',
+  # 'dpcc-c-tightened-dt4p0',
+]
+projection_cost: 'pos_vel'
+constraint_types: [
+  'halfspace', 
+  'obstacles', 
+  'dynamics',
+  'bounds',
+  ]
+enlarge_constraints: {
+  'avoiding': 0.025,
+}
+halfspace_constraints: {
+  'avoiding-synthetic': [
+    [[0.8, -0.5], [0.4, 0.5], 'below'],   # hard (\ shape)
+    [[0.2, -0.5], [0.6, 0.5], 'below'],     # hard (/ shape)
+    [[0.8, -0.3], [0.575, 0.5], 'below'],   # easier (\ shape)
+    [[0.2, -0.3], [0.425, 0.5], 'below'],   # easier (/ shape)
+    ],
+  'avoiding-d3il': [
+    # [[0.8, -0.3], [0.3, 0.5], 'below'],   # hard (\ shape)
+    # [[0.2, -0.3], [0.7, 0.5], 'below'],     # hard (/ shape)
+    [[0.8, -0.5], [0.4, 0.5], 'below'],   # hard (\ shape)
+    [[0.2, -0.5], [0.6, 0.5], 'below'],     # hard (/ shape)
+    [[0.8, -0.3], [0.575, 0.5], 'below'],   # easier (\ shape)
+    [[0.2, -0.3], [0.425, 0.5], 'below'],   # easier (/ shape)
+    ],
+}
+obstacle_constraints: {
+  'avoiding-synthetic': [
+    {'type': 'sphere_outside', 'dimensions': ['x', 'y'], 'center': [0.4, 0.08], 'radius': 0.06},
+    {'type': 'sphere_outside', 'dimensions': ['x', 'y'], 'center': [0.6, 0.08], 'radius': 0.06},
+    {'type': 'sphere_outside', 'dimensions': ['x', 'y'], 'center': [0.5, -0.1], 'radius': 0.06},
+    {'type': 'sphere_outside', 'dimensions': ['x', 'y'], 'center': [0.4, 0.08], 'radius': 0.08},
+    {'type': 'sphere_outside', 'dimensions': ['x', 'y'], 'center': [0.6, 0.08], 'radius': 0.08},
+    {'type': 'sphere_outside', 'dimensions': ['x', 'y'], 'center': [0.5, -0.09], 'radius': 0.08},
+  ],
+  'avoiding-d3il': [
+    # {'type': 'sphere_outside', 'dimensions': ['x', 'y'], 'center': [0.575, 0.08], 'radius': 0.1},  # second row, right obstacle larger
+    {'type': 'sphere_outside', 'dimensions': ['x', 'y'], 'center': [0.4, 0.08], 'radius': 0.06},  # second row, left obstacle larger
+    {'type': 'sphere_outside', 'dimensions': ['x', 'y'], 'center': [0.6, 0.08], 'radius': 0.06},  # second row, right obstacle larger
+    {'type': 'sphere_outside', 'dimensions': ['x', 'y'], 'center': [0.5, -0.1], 'radius': 0.06},  # first row obstacle larger
+    {'type': 'sphere_outside', 'dimensions': ['x', 'y'], 'center': [0.4, 0.08], 'radius': 0.08},  # second row, left obstacle larger
+    {'type': 'sphere_outside', 'dimensions': ['x', 'y'], 'center': [0.6, 0.08], 'radius': 0.08},  # second row, right obstacle larger
+    {'type': 'sphere_outside', 'dimensions': ['x', 'y'], 'center': [0.5, -0.09], 'radius': 0.08},  # first row obstacle larger
+  ]
+}
+bounds: {
+  'avoiding-synthetic': [
+    {'type': 'lower', 'dimensions': ['vx', 'vy'], 'values': [-0.01, 0]},
+    {'type': 'upper', 'dimensions': ['vx', 'vy'], 'values': [0.01, 0.01]},
+    {'type': 'lower', 'dimensions': ['vx', 'vy'], 'values': [-0.012, 0]},
+    {'type': 'upper', 'dimensions': ['vx', 'vy'], 'values': [0.012, 0.012]},
+  ],
+  'avoiding-d3il': [
+    {'type': 'lower', 'dimensions': ['vx', 'vy'], 'values': [-0.01, 0]},
+    {'type': 'upper', 'dimensions': ['vx', 'vy'], 'values': [0.01, 0.01]},
+    {'type': 'lower', 'dimensions': ['vx', 'vy'], 'values': [-0.012, 0]},
+    {'type': 'upper', 'dimensions': ['vx', 'vy'], 'values': [0.012, 0.012]},
+  ],
+}
+
+# Plotting
+plot_how_many: 10
+ax_limits: {
+  'avoiding-synthetic': [[0.2, 0.8], [-0.3, 0.4]],
+  'avoiding-d3il': [[0.2, 0.8], [-0.3, 0.4]]
+}

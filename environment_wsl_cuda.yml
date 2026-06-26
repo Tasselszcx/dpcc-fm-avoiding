@@ -1,0 +1,12 @@
+name: dpcc-fm
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pytorch=2.4.1
+  - pytorch-cuda=12.1
+  - pip
+  - pip:
+      - -r requirements_wsl.txt

@@ -1,0 +1,33 @@
+__pycache__/
+*.py[cod]
+.DS_Store
+*:Zone.Identifier
+.venv/
+.env
+
+# Runtime outputs
+logs/
+wandb/
+*.log
+MUJOCO_LOG.TXT
+args.json
+
+# Large/generated archives and checkpoints
+*.tar.gz
+*.zip
+*.pt
+*.pth
+
+# Python packaging/build byproducts
+*.egg-info/
+build/
+dist/
+
+# D3IL/Mujoco runtime temp files
+d3il/environments/d3il/models/mj/robot/panda_tmp*.xml
+
+# Bundled large upstream assets not needed for Avoiding
+diffuser/datasets/minari-dataset-generation/scripts/antmaze/GoalReachAnt_model.zip
+
+# Keep the synthetic dataset tracked; it is small and needed for quick start.
+!d3il/environments/dataset/data/avoiding_synthetic/data/*.pkl

@@ -1,0 +1,207 @@
+{
+  "data_dir": "/Users/tassels/projects/dpcc-fm-avoiding/d3il/environments/dataset/data/avoiding_synthetic/data",
+  "total_files": 288,
+  "expected_total_files": 288,
+  "unknown_scenarios": {},
+  "scenarios": {
+    "top-right-hard": {
+      "count": 96,
+      "expected_count": 96,
+      "length": {
+        "min": 70.0,
+        "mean": 89.38541666666667,
+        "max": 109.0,
+        "std": 11.175093019436373
+      },
+      "goal_x": {
+        "min": 0.66103741538857,
+        "mean": 0.7067940159377141,
+        "max": 0.75890115134756,
+        "std": 0.029004753336989382
+      },
+      "goal_y": {
+        "min": 0.3662658906966956,
+        "mean": 0.39782531867229903,
+        "max": 0.42834140113836966,
+        "std": 0.018190651661419373
+      },
+      "start_error": {
+        "min": 0.0,
+        "mean": 0.0,
+        "max": 0.0,
+        "std": 0.0
+      },
+      "min_obstacle_margin": {
+        "min": 0.029999999999999943,
+        "mean": 0.05632205192307641,
+        "max": 0.0934329288178741,
+        "std": 0.01275815529267771
+      },
+      "min_extra_obstacle_margin": {
+        "min": 0.029999999999999943,
+        "mean": 0.05657570613968033,
+        "max": 0.08858262615161756,
+        "std": 0.014499809634423336
+      },
+      "max_halfspace_violation": {
+        "min": 0.0,
+        "mean": 0.0,
+        "max": 0.0,
+        "std": 0.0
+      },
+      "max_abs_action": {
+        "min": 0.006724339414823227,
+        "mean": 0.00897711635181778,
+        "max": 0.011416984517584772,
+        "std": 0.0011984842801046223
+      },
+      "max_action_bound_violation_tight": {
+        "min": 0.0,
+        "mean": 0.00013374249549395675,
+        "max": 0.0014169845175847715,
+        "std": 0.0003153842652625634
+      },
+      "max_action_bound_violation_loose": {
+        "min": 0.0,
+        "mean": 0.0,
+        "max": 0.0,
+        "std": 0.0
+      },
+      "nan_or_inf_trajectories": 0,
+      "failures": []
+    },
+    "top-left-hard": {
+      "count": 96,
+      "expected_count": 96,
+      "length": {
+        "min": 70.0,
+        "mean": 90.23958333333333,
+        "max": 109.0,
+        "std": 10.63773236297985
+      },
+      "goal_x": {
+        "min": 0.28014251595401013,
+        "mean": 0.34363235364594774,
+        "max": 0.4133161772514854,
+        "std": 0.036286338373670894
+      },
+      "goal_y": {
+        "min": 0.36534124224130105,
+        "mean": 0.3996354721523668,
+        "max": 0.42979938269171725,
+        "std": 0.01951963718000786
+      },
+      "start_error": {
+        "min": 0.0,
+        "mean": 0.0,
+        "max": 0.0,
+        "std": 0.0
+      },
+      "min_obstacle_margin": {
+        "min": 0.029385756220646854,
+        "mean": 0.034366920459205884,
+        "max": 0.07273706837663638,
+        "std": 0.009069014737229349
+      },
+      "min_extra_obstacle_margin": {
+        "min": 0.029785607201378225,
+        "mean": 0.03474631847431065,
+        "max": 0.0685510708439896,
+        "std": 0.008404785203112263
+      },
+      "max_halfspace_violation": {
+        "min": 0.0,
+        "mean": 0.0,
+        "max": 0.0,
+        "std": 0.0
+      },
+      "max_abs_action": {
+        "min": 0.007360094902263914,
+        "mean": 0.009748153904337663,
+        "max": 0.011495951564541584,
+        "std": 0.001256358321969856
+      },
+      "max_action_bound_violation_tight": {
+        "min": 0.0,
+        "mean": 0.00043723737790791513,
+        "max": 0.0014959515645415842,
+        "std": 0.0005567815509562074
+      },
+      "max_action_bound_violation_loose": {
+        "min": 0.0,
+        "mean": 0.0,
+        "max": 0.0,
+        "std": 0.0
+      },
+      "nan_or_inf_trajectories": 0,
+      "failures": []
+    },
+    "both-hard": {
+      "count": 96,
+      "expected_count": 96,
+      "length": {
+        "min": 75.0,
+        "mean": 95.86458333333333,
+        "max": 116.0,
+        "std": 9.477626935387828
+      },
+      "goal_x": {
+        "min": 0.44067107577853376,
+        "mean": 0.5004760405226931,
+        "max": 0.5583532194633919,
+        "std": 0.03642481318447883
+      },
+      "goal_y": {
+        "min": 0.36510622211285393,
+        "mean": 0.40000596460374166,
+        "max": 0.4281640270867246,
+        "std": 0.018648048636306137
+      },
+      "start_error": {
+        "min": 0.0,
+        "mean": 0.0,
+        "max": 0.0,
+        "std": 0.0
+      },
+      "min_obstacle_margin": {
+        "min": 0.02574825957147414,
+        "mean": 0.029533702316518612,
+        "max": 0.029999999999999985,
+        "std": 0.00046033162318084294
+      },
+      "min_extra_obstacle_margin": {
+        "min": 0.02974856109188781,
+        "mean": 0.03182786985431321,
+        "max": 0.049593314316211404,
+        "std": 0.004378885253263194
+      },
+      "max_halfspace_violation": {
+        "min": 0.0,
+        "mean": 0.0,
+        "max": 0.0,
+        "std": 0.0
+      },
+      "max_abs_action": {
+        "min": 0.008830835348645136,
+        "mean": 0.011032213737335919,
+        "max": 0.011498947699101397,
+        "std": 0.0005445171992452028
+      },
+      "max_action_bound_violation_tight": {
+        "min": 0.0,
+        "mean": 0.0010738158593625057,
+        "max": 0.001498947699101397,
+        "std": 0.0004209402265610014
+      },
+      "max_action_bound_violation_loose": {
+        "min": 0.0,
+        "mean": 0.0,
+        "max": 0.0,
+        "std": 0.0
+      },
+      "nan_or_inf_trajectories": 0,
+      "failures": []
+    }
+  },
+  "pass": true
+}
