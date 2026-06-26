@@ -12,6 +12,7 @@ This repo is a clean, runnable fork of the DPCC Avoiding experiment with a Flow 
 - Evaluation: `scripts/eval.py`
 - One-command full experiment: `scripts/run_d3il_fm_experiment.sh`
 - 4090/WSL pilot script: `scripts/run_pilot_4090.sh`
+- 8x H800 parallel launcher: `scripts/run_h800_parallel.sh`
 
 The tracked synthetic dataset has 288 trajectories: 96 each for `top-right-hard`, `top-left-hard`, and `both-hard`. The latest audit report is in `reports/synthetic_data_quality_report.md`.
 
@@ -64,6 +65,20 @@ bash scripts/run_d3il_fm_experiment.sh
 ```
 
 By default the configs train for `100000` steps and evaluate `50` trials per scene.
+
+## 8x H800 Cluster Run
+
+For the 8x H800 80GB machine, see `README_H800.md`.
+
+Short version:
+
+```bash
+git clone https://github.com/Tasselszcx/dpcc-fm-avoiding.git
+cd dpcc-fm-avoiding
+bash setup_wsl_cuda.sh
+conda activate dpcc-fm
+bash scripts/run_h800_parallel.sh
+```
 
 ## Notes
 

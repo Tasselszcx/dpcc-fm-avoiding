@@ -36,6 +36,12 @@ if os.environ.get('EVAL_SEEDS'):
     seeds = [int(seed) for seed in os.environ['EVAL_SEEDS'].split(',') if seed.strip()]
 if os.environ.get('EVAL_N_TRIALS'):
     n_trials = int(os.environ['EVAL_N_TRIALS'])
+if os.environ.get('EVAL_HALFSPACE_VARIANTS'):
+    halfspace_variants = [
+        variant.strip()
+        for variant in os.environ['EVAL_HALFSPACE_VARIANTS'].split(',')
+        if variant.strip()
+    ]
 if os.environ.get('EVAL_PROJECTION_VARIANTS'):
     projection_variants = [
         variant.strip()
