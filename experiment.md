@@ -100,7 +100,49 @@ Total evaluation matrix: **2 models x 3 seeds x 3 scenes x 3 projection variants
    hardest for both models even after projection (~47-49% goal+cons%), while single-side
    scenes are easier. This matches the expected geometry of the task.
 
-## 5. Reproduction
+## 5. Extension: closing the FM gap with a late projection schedule
+
+Finding #4 above showed FM losing far more goal-reaching ability to projection than DDPM
+(0.99 -> 0.50, vs DDPM 0.99 -> 0.71). The root cause is the FM sampling dynamics: FM
+integrates a learned velocity field with an Euler ODE solver. The original schedule projects
+on **every** step of the last half of integration. Each mid-integration projection pushes the
+state off the learned ODE path, so the next velocity evaluation `v(x_projected, t)` is taken
+at an off-distribution point, and the error accumulates and drags the trajectory away from
+the goal. DDPM's stochastic `p_sample` re-noises after each projection and is far more
+forgiving of this perturbation.
+
+**Fix (purely additive, no change to existing variants or model code):** project only during
+the *last* fraction of integration — letting the Euler solver first integrate cleanly close to
+the data manifold, then projecting to enforce constraints. This is exposed via a new
+variant-name suffix `thXpY` (projection threshold = X.Y; e.g. `th0p2` projects only in the last
+20%). A complementary `peN` suffix projects every N steps. Both are parsed in `scripts/eval.py`
+alongside the existing `dt*` suffixes; the original `dpcc-c-tightened` is untouched.
+
+### Results: FM with `dpcc-c-tightened-th0p2` (3 seeds x 3 scenes x 50 trials)
+
+| Method | goal+cons% | viol steps | time/step |
+| --- | ---: | ---: | ---: |
+| FM `dpcc-c-tightened` (original) | 0.50 | 0.0 | 0.45s |
+| **FM `dpcc-c-tightened-th0p2` (fixed)** | **0.72** | **0.0** | **0.151s** |
+| DDPM `dpcc-c-tightened` (reference) | 0.71 | 0.0 | 0.31s |
+
+Per scene (FM, th0p2): top-right-hard 0.73, top-left-hard 0.84, both-hard 0.59.
+
+**Outcome.** The late projection schedule lifts FM from 0.50 to **0.72 goal+cons%**, matching
+DDPM (0.71), while keeping zero constraint violations. It is also **~3x faster** than the
+original FM schedule and **~2x faster** than DDPM (0.151s vs 0.31s per step), because far fewer
+SLSQP solves are performed. This realizes FM's intended advantage: comparable quality at lower
+projection cost.
+
+### Additional projection solver (`trust-constr`)
+
+As a second extension axis, `scripts/eval.py` also accepts a `trustconstr` suffix that swaps
+the projection NLP solver from SLSQP to SciPy's `trust-constr` (interior-point / trust-region),
+via a new `scipy_method` argument on `Projector` (default `'SLSQP'`, so existing behavior is
+unchanged). This provides an alternative-solver comparison point; results are reported
+separately once the (substantially slower) `trust-constr` runs complete.
+
+## 6. Reproduction
 
 ```bash
 source scripts/env_h800.sh          # conda env dpcc-fm + PYTHONPATH/PYTHONNOUSERSITE/MUJOCO_GL
@@ -119,6 +161,13 @@ EVAL_N_TRIALS=50 python scripts/eval.py
 # Summaries (reproduces the tables above)
 RESULT_EXP=avoiding-synthetic    python scripts/load_results.py
 RESULT_EXP=avoiding-synthetic-fm python scripts/load_results.py
+
+# Extension: FM with the late projection schedule (Section 5)
+EVAL_EXPS=avoiding-synthetic-fm \
+EVAL_SEEDS=0,1,2 \
+EVAL_HALFSPACE_VARIANTS=top-left-hard,top-right-hard,both-hard \
+EVAL_PROJECTION_VARIANTS=dpcc-c-tightened-th0p2 \
+EVAL_N_TRIALS=50 python scripts/eval.py
 ```
 
 Metric definitions follow `scripts/load_results.py`; raw per-trial arrays are stored in

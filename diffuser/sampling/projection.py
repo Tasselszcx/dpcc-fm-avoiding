@@ -9,9 +9,9 @@ _DEFAULT_DEVICE = ('cuda' if torch.cuda.is_available()
 
 class Projector:
 
-    def __init__(self, horizon, transition_dim, action_dim=0, goal_dim=0, constraint_list=[], normalizer=None, variant='states', 
+    def __init__(self, horizon, transition_dim, action_dim=0, goal_dim=0, constraint_list=[], normalizer=None, variant='states',
                  dt=0.1, cost_dims=None, skip_initial_state=True, diffusion_timestep_threshold=0.5, gradient=False, gradient_weights=None,
-                 device=_DEFAULT_DEVICE, solver='proxsuite', parallelize=False, scipy_maxiter=1000, project_every=1):
+                 device=_DEFAULT_DEVICE, solver='proxsuite', parallelize=False, scipy_maxiter=1000, project_every=1, scipy_method='SLSQP'):
         self.horizon = horizon
         self.transition_dim = transition_dim
         self.dt = torch.tensor(dt, device=device)
@@ -25,6 +25,10 @@ class Projector:
         self.parallelize = parallelize
         self.scipy_maxiter = scipy_maxiter
         self.project_every = project_every
+        # NLP method used by the scipy solver path. Default 'SLSQP' preserves the
+        # original behavior; 'trust-constr' selects an interior-point/trust-region
+        # solver as an alternative projection method (additive extension).
+        self.scipy_method = scipy_method
         
         # Determine whether to include actions in the projection
         if normalizer is None:
@@ -139,11 +143,11 @@ class Projector:
             # Cost
             cost_fun = lambda x: 0.5 * x @ Q @ x + r_np_double[i] @ x # + (A_double @ x - b_double) @ (A_double @ x - b_double)
             jac_cost_fun = lambda x: Q @ x + r_np_double[i]
-            res = minimize(fun=cost_fun, 
+            res = minimize(fun=cost_fun,
                             x0=trajectory_np_double[i],
-                            constraints=constraints, 
-                            method='SLSQP', 
-                            jac=jac_cost_fun, 
+                            constraints=constraints,
+                            method=self.scipy_method,
+                            jac=jac_cost_fun,
                             bounds=Bounds(-5 * np.ones_like(trajectory_np_double[i]), 5 * np.ones_like(trajectory_np_double[i])),
                             tol=1e-6,
                             options={'maxiter': self.scipy_maxiter, 'disp': False})

@@ -223,11 +223,40 @@ for exp in exps:
                 elif 'dt4p0' in variant:
                     delta_t = 4.0 * dt
 
+                # --- FM projection-schedule sweep (additive; default behavior unchanged) ---
+                # Optional variant-name suffixes to control *when/how often* projection runs,
+                # mirroring the existing 'dt*' suffix pattern above. These only take effect when
+                # the suffix is present in the variant name, so the original variants
+                # (e.g. 'dpcc-c-tightened') keep their exact previous behavior.
+                #   peN   -> project_every = N        (sparser projection during ODE integration)
+                #   thX p Y -> diffusion_timestep_threshold = X.Y (e.g. 'th0p2' -> only project in
+                #             the last 20% of integration, i.e. project later/closer to data)
+                override_project_every = None
+                for _pe in (2, 3, 4, 5):
+                    if f'pe{_pe}' in variant:
+                        override_project_every = _pe
+                        break
+                override_threshold = None
+                import re as _re
+                _m = _re.search(r'th(\d)p(\d+)', variant)
+                if _m:
+                    override_threshold = float(f'{_m.group(1)}.{_m.group(2)}')
+
+                # Optional alternative NLP solver for the projection step.
+                #   'trustconstr' in the variant name -> scipy 'trust-constr'
+                #   (interior-point / trust-region) instead of the default 'SLSQP'.
+                scipy_method = 'trust-constr' if 'trustconstr' in variant else 'SLSQP'
+
                 # Create projector
                 project_every = config.get('flow_matching_project_every', 1) if diffusion.__class__.__name__ == 'FlowMatching' else 1
+                if override_project_every is not None:
+                    project_every = override_project_every
+                projector_kwargs = {}
+                if override_threshold is not None:
+                    projector_kwargs['diffusion_timestep_threshold'] = override_threshold
                 projector = Projector(horizon=args.horizon, transition_dim=trajectory_dim, action_dim=action_dim, goal_dim=diffusion.goal_dim, constraint_list=constraints, normalizer=dataset.normalizer,
                                         gradient=gradient, gradient_weights=[1, 0.5, 2], variant=diffuser_variant, dt=delta_t, cost_dims=None, device=args.device, solver='scipy',
-                                        scipy_maxiter=config.get('projection_scipy_maxiter', 1000), project_every=project_every)
+                                        scipy_maxiter=config.get('projection_scipy_maxiter', 1000), project_every=project_every, scipy_method=scipy_method, **projector_kwargs)
                 projector = None if variant == 'diffuser' else projector
 
                 trajectory_selection = 'random'
