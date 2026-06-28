@@ -238,9 +238,18 @@ for exp in exps:
                         break
                 override_threshold = None
                 import re as _re
-                _m = _re.search(r'th(\d)p(\d+)', variant)
-                if _m:
-                    override_threshold = float(f'{_m.group(1)}.{_m.group(2)}')
+                # Two equivalent spellings for the projection-window threshold:
+                #   'lateprojNN' -> project only in the last NN% of integration
+                #                   (more readable, e.g. 'lateproj20' = last 20%)
+                #   'thXpY'      -> diffusion_timestep_threshold = X.Y (original spelling,
+                #                   kept as a backward-compatible alias; 'th0p2' == 'lateproj20')
+                _ml = _re.search(r'lateproj(\d+)', variant)
+                if _ml:
+                    override_threshold = int(_ml.group(1)) / 100.0
+                else:
+                    _m = _re.search(r'th(\d)p(\d+)', variant)
+                    if _m:
+                        override_threshold = float(f'{_m.group(1)}.{_m.group(2)}')
 
                 # Optional alternative NLP solver for the projection step.
                 #   'trustconstr' in the variant name -> scipy 'trust-constr'

@@ -113,20 +113,32 @@ forgiving of this perturbation.
 
 **Fix (purely additive, no change to existing variants or model code):** project only during
 the *last* fraction of integration — letting the Euler solver first integrate cleanly close to
-the data manifold, then projecting to enforce constraints. This is exposed via a new
-variant-name suffix `thXpY` (projection threshold = X.Y; e.g. `th0p2` projects only in the last
-20%). A complementary `peN` suffix projects every N steps. Both are parsed in `scripts/eval.py`
+the data manifold, then projecting to enforce constraints. This is exposed via a readable
+variant-name suffix `lateprojNN` (project only in the last NN% of integration; e.g.
+`lateproj20` = last 20%). For backward compatibility the original spelling `thXpY`
+(projection threshold = X.Y) is kept as an exact alias, so `lateproj20` == `th0p2`. A
+complementary `peN` suffix projects every N steps. All are parsed in `scripts/eval.py`
 alongside the existing `dt*` suffixes; the original `dpcc-c-tightened` is untouched.
 
-### Results: FM with `dpcc-c-tightened-th0p2` (3 seeds x 3 scenes x 50 trials)
+### Results: FM with `dpcc-c-tightened-lateproj20` (3 seeds x 3 scenes x 50 trials)
 
 | Method | goal+cons% | viol steps | time/step |
 | --- | ---: | ---: | ---: |
 | FM `dpcc-c-tightened` (original) | 0.50 | 0.0 | 0.45s |
-| **FM `dpcc-c-tightened-th0p2` (fixed)** | **0.72** | **0.0** | **0.151s** |
+| **FM `dpcc-c-tightened-lateproj20` (fixed)** | **0.72** | **0.0** | **0.151s** |
 | DDPM `dpcc-c-tightened` (reference) | 0.71 | 0.0 | 0.31s |
 
-Per scene (FM, th0p2): top-right-hard 0.73, top-left-hard 0.84, both-hard 0.59.
+Per-scene breakdown (FM `dpcc-c-tightened-lateproj20`, same format as Section 3):
+
+| Model | Scene | Variant | goal% | goal+cons% | viol steps |
+| --- | --- | --- | ---: | ---: | ---: |
+| FM | top-left-hard | dpcc-c-tightened-lateproj20 | 84.0 | **84.0** | 0.0 |
+| FM | top-right-hard | dpcc-c-tightened-lateproj20 | 72.7 | **72.7** | 0.0 |
+| FM | both-hard | dpcc-c-tightened-lateproj20 | 59.3 | **59.3** | 0.0 |
+
+Compared to the original FM `dpcc-c-tightened` (48.7 / 52.0 / 49.3 per scene), every scene
+improves, including the hardest both-hard (49.3 -> 59.3). As with all DPCC variants, goal%
+equals goal+cons% (zero violations), so the only remaining failures are "did not reach".
 
 **Outcome.** The late projection schedule lifts FM from 0.50 to **0.72 goal+cons%**, matching
 DDPM (0.71), while keeping zero constraint violations. It is also **~3x faster** than the
@@ -154,7 +166,7 @@ no final projection). Smoke test (FM seed 0, **both-hard**, 10 trials): goal = 0
 unsafe as no projection at all (diffuser: 27.8 viol steps). Soft guidance nudges the trajectory
 toward feasibility but never guarantees it, so on the primary safety metric it is far worse than
 hard projection. This confirms that *enforcing* (projecting onto) the feasible set — not merely
-penalizing infeasibility — is what makes DPCC work. The late-projection schedule (`th0p2`)
+penalizing infeasibility — is what makes DPCC work. The late-projection schedule (`lateproj20`)
 remains the recommended FM configuration.
 
 ## 6. Reproduction
@@ -181,7 +193,7 @@ RESULT_EXP=avoiding-synthetic-fm python scripts/load_results.py
 EVAL_EXPS=avoiding-synthetic-fm \
 EVAL_SEEDS=0,1,2 \
 EVAL_HALFSPACE_VARIANTS=top-left-hard,top-right-hard,both-hard \
-EVAL_PROJECTION_VARIANTS=dpcc-c-tightened-th0p2 \
+EVAL_PROJECTION_VARIANTS=dpcc-c-tightened-lateproj20 \
 EVAL_N_TRIALS=50 python scripts/eval.py
 ```
 

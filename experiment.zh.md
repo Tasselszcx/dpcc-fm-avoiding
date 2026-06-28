@@ -100,20 +100,31 @@
 目标。DDPM 的随机 `p_sample` 在每次投影后重新加噪,对这种扰动宽容得多。
 
 **修复(纯加性,不改动现有任何变体或模型代码):** 只在积分的*最后*一小段做投影——
-先让 Euler 求解器干净地积分到接近数据流形,再投影以施加约束。这通过新的变体名后缀
-`thXpY`(投影阈值 = X.Y;例如 `th0p2` 只在最后 20% 投影)暴露。互补的 `peN` 后缀
-每 N 步投影一次。两者都在 `scripts/eval.py` 中与已有的 `dt*` 后缀一起解析;原始的
-`dpcc-c-tightened` 不受任何影响。
+先让 Euler 求解器干净地积分到接近数据流形,再投影以施加约束。这通过一个**可读性更好**的
+变体名后缀 `lateprojNN`(只在最后 NN% 投影;例如 `lateproj20` = 最后 20%)暴露。为向后
+兼容,原写法 `thXpY`(投影阈值 = X.Y)保留为完全等价的别名,即 `lateproj20` == `th0p2`。
+互补的 `peN` 后缀每 N 步投影一次。它们都在 `scripts/eval.py` 中与已有的 `dt*` 后缀一起
+解析;原始的 `dpcc-c-tightened` 不受任何影响。
 
-### 结果:FM 使用 `dpcc-c-tightened-th0p2`(3 种子 x 3 场景 x 50 试验)
+### 结果:FM 使用 `dpcc-c-tightened-lateproj20`(3 种子 x 3 场景 x 50 试验)
 
 | 方法 | goal+cons% | viol steps | time/step |
 | --- | ---: | ---: | ---: |
 | FM `dpcc-c-tightened`(原始) | 0.50 | 0.0 | 0.45s |
-| **FM `dpcc-c-tightened-th0p2`(修复)** | **0.72** | **0.0** | **0.151s** |
+| **FM `dpcc-c-tightened-lateproj20`(修复)** | **0.72** | **0.0** | **0.151s** |
 | DDPM `dpcc-c-tightened`(参考) | 0.71 | 0.0 | 0.31s |
 
-分场景(FM,th0p2):top-right-hard 0.73,top-left-hard 0.84,both-hard 0.59。
+分场景(FM `dpcc-c-tightened-lateproj20`,与第 3 节同格式):
+
+| 模型 | 场景 | 变体 | goal% | goal+cons% | viol steps |
+| --- | --- | --- | ---: | ---: | ---: |
+| FM | top-left-hard | dpcc-c-tightened-lateproj20 | 84.0 | **84.0** | 0.0 |
+| FM | top-right-hard | dpcc-c-tightened-lateproj20 | 72.7 | **72.7** | 0.0 |
+| FM | both-hard | dpcc-c-tightened-lateproj20 | 59.3 | **59.3** | 0.0 |
+
+对比原始 FM `dpcc-c-tightened`(分场景 48.7 / 52.0 / 49.3),三场景全面提升,连最难的
+both-hard 也从 49.3 -> 59.3。和所有 DPCC 变体一样,goal% 与 goal+cons% 相等(零违反),
+剩下的失败只是"没到达"。
 
 **结果。** 晚投影调度把 FM 从 0.50 提升到 **0.72 goal+cons%**,追平 DDPM(0.71),
 同时保持零约束违反。它还比原始 FM 调度**快约 3 倍**、比 DDPM**快约 2 倍**
@@ -136,7 +147,7 @@ SLSQP 换成 SciPy 的 `trust-constr`(内点 / 信赖域),通过 `Projector` 上
 冒烟测试(FM 种子0,**both-hard**,10 试验):goal = 0.90,但**满足约束仅 0.10,每条 rollout
 有 29.6 个违反步**——基本和完全不投影一样不安全(diffuser:27.8 个违反步)。软引导把轨迹
 往可行方向"推",但从不保证可行,因此在核心安全指标上远差于硬投影。这反过来证明了:真正让
-DPCC 起作用的是把轨迹*强制投影到*可行集,而不仅仅是惩罚不可行。晚投影调度(`th0p2`)仍是
+DPCC 起作用的是把轨迹*强制投影到*可行集,而不仅仅是惩罚不可行。晚投影调度(`lateproj20`)仍是
 推荐的 FM 配置。
 
 ## 6. 复现
@@ -163,7 +174,7 @@ RESULT_EXP=avoiding-synthetic-fm python scripts/load_results.py
 EVAL_EXPS=avoiding-synthetic-fm \
 EVAL_SEEDS=0,1,2 \
 EVAL_HALFSPACE_VARIANTS=top-left-hard,top-right-hard,both-hard \
-EVAL_PROJECTION_VARIANTS=dpcc-c-tightened-th0p2 \
+EVAL_PROJECTION_VARIANTS=dpcc-c-tightened-lateproj20 \
 EVAL_N_TRIALS=50 python scripts/eval.py
 ```
 
