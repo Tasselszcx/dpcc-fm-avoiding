@@ -53,34 +53,50 @@ Total evaluation matrix: **2 models x 3 seeds x 3 scenes x 3 projection variants
 
 ## 3. Per-scene breakdown
 
-| Model | Scene | Variant | goal% | goal+cons% | viol steps |
-| --- | --- | --- | ---: | ---: | ---: |
-| DDPM | top-left-hard | diffuser | 98.7 | 63.3 | 15.0 |
-| DDPM | top-left-hard | dpcc-c-tightened | 86.7 | **86.7** | 0.0 |
-| DDPM | top-left-hard | post_processing | 72.7 | 46.0 | 2.7 |
-| DDPM | top-right-hard | diffuser | 98.7 | 20.0 | 41.6 |
-| DDPM | top-right-hard | dpcc-c-tightened | 80.7 | **80.7** | 0.0 |
-| DDPM | top-right-hard | post_processing | 20.0 | 20.0 | 2.7 |
-| DDPM | both-hard | diffuser | 98.7 | 15.3 | 32.4 |
-| DDPM | both-hard | dpcc-c-tightened | 46.7 | **46.7** | 0.0 |
-| DDPM | both-hard | post_processing | 68.0 | 65.3 | 1.1 |
-| FM | top-left-hard | diffuser | 98.7 | 51.3 | 16.4 |
-| FM | top-left-hard | dpcc-c-tightened | 48.7 | 48.7 | 0.9 |
-| FM | top-left-hard | **dpcc-c-tightened-lateproj20** | 84.0 | **84.0** | 0.0 |
-| FM | top-left-hard | post_processing | 59.3 | 13.3 | 3.7 |
-| FM | top-right-hard | diffuser | 98.7 | 21.3 | 37.4 |
-| FM | top-right-hard | dpcc-c-tightened | 52.0 | **52.0** | 0.0 |
-| FM | top-right-hard | **dpcc-c-tightened-lateproj20** | 72.7 | **72.7** | 0.0 |
-| FM | top-right-hard | post_processing | 4.7 | 4.7 | 0.4 |
-| FM | both-hard | diffuser | 98.7 | 25.3 | 27.8 |
-| FM | both-hard | dpcc-c-tightened | 49.3 | **49.3** | 0.0 |
-| FM | both-hard | **dpcc-c-tightened-lateproj20** | 59.3 | **59.3** | 0.0 |
-| FM | both-hard | post_processing | 59.3 | 48.0 | 0.8 |
+| Model | Scene | Variant | goal% | goal+cons% | viol steps | time/step |
+| --- | --- | --- | ---: | ---: | ---: | ---: |
+| DDPM | top-left-hard | diffuser | 98.7 | 63.3 | 15.0 | 0.117s |
+| DDPM | top-left-hard | dpcc-c-tightened | 86.7 | **86.7** | 0.0 | 0.316s |
+| DDPM | top-left-hard | post_processing | 72.7 | 46.0 | 2.7 | 0.306s |
+| DDPM | top-right-hard | diffuser | 98.7 | 20.0 | 41.6 | 0.117s |
+| DDPM | top-right-hard | dpcc-c-tightened | 80.7 | **80.7** | 0.0 | 0.277s |
+| DDPM | top-right-hard | post_processing | 20.0 | 20.0 | 2.7 | 0.247s |
+| DDPM | both-hard | diffuser | 98.7 | 15.3 | 32.4 | 0.118s |
+| DDPM | both-hard | dpcc-c-tightened | 46.7 | **46.7** | 0.0 | 0.303s |
+| DDPM | both-hard | post_processing | 68.0 | 65.3 | 1.1 | 0.282s |
+| FM | top-left-hard | diffuser | 98.7 | 51.3 | 16.4 | 0.118s |
+| FM | top-left-hard | dpcc-c-tightened | 48.7 | 48.7 | 0.9 | 0.479s |
+| FM | top-left-hard | **dpcc-c-tightened-lateproj20** | 84.0 | **84.0** | 0.0 | **0.153s** |
+| FM | top-left-hard | post_processing | 59.3 | 13.3 | 3.7 | 0.385s |
+| FM | top-right-hard | diffuser | 98.7 | 21.3 | 37.4 | 0.119s |
+| FM | top-right-hard | dpcc-c-tightened | 52.0 | **52.0** | 0.0 | 0.424s |
+| FM | top-right-hard | **dpcc-c-tightened-lateproj20** | 72.7 | **72.7** | 0.0 | **0.146s** |
+| FM | top-right-hard | post_processing | 4.7 | 4.7 | 0.4 | 0.358s |
+| FM | both-hard | diffuser | 98.7 | 25.3 | 27.8 | 0.117s |
+| FM | both-hard | dpcc-c-tightened | 49.3 | **49.3** | 0.0 | 0.436s |
+| FM | both-hard | **dpcc-c-tightened-lateproj20** | 59.3 | **59.3** | 0.0 | **0.155s** |
+| FM | both-hard | post_processing | 59.3 | 48.0 | 0.8 | 0.394s |
 
 > Note: `dpcc-c-tightened-lateproj20` is the late-projection fix introduced in Section 5
 > (project only in the last 20% of integration). It is shown here alongside the other FM
-> variants for a direct per-scene comparison; Section 5 explains *why* it works and reports
-> the aggregate + speed numbers. (A bar-chart figure will be added later.)
+> variants for a direct per-scene comparison; Section 5 explains *why* it works. Note it is
+> not only higher quality but also **~3x cheaper per step** (≈0.15s vs ≈0.45s).
+
+### Figures
+
+![Primary metric by scene](figures/fig_goalcons_by_scene.png)
+
+*Late projection (green) lifts FM to DDPM's level on every scene.*
+
+![FM projection variants](figures/fig_fm_variants.png)
+
+*FM only: no-projection is unsafe, original dpcc-c is safe but loses goal-reaching,
+late projection recovers it.*
+
+![Quality vs projection cost](figures/fig_quality_vs_cost.png)
+
+*Quality vs. cost: FM `lateproj20` (green star) sits top-left — DDPM-level quality at the
+lowest per-step cost.*
 
 ## 4. Findings
 

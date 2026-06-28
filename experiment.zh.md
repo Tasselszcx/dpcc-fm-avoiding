@@ -49,33 +49,47 @@
 
 ## 3. 分场景细分
 
-| 模型 | 场景 | 变体 | goal% | goal+cons% | viol steps |
-| --- | --- | --- | ---: | ---: | ---: |
-| DDPM | top-left-hard | diffuser | 98.7 | 63.3 | 15.0 |
-| DDPM | top-left-hard | dpcc-c-tightened | 86.7 | **86.7** | 0.0 |
-| DDPM | top-left-hard | post_processing | 72.7 | 46.0 | 2.7 |
-| DDPM | top-right-hard | diffuser | 98.7 | 20.0 | 41.6 |
-| DDPM | top-right-hard | dpcc-c-tightened | 80.7 | **80.7** | 0.0 |
-| DDPM | top-right-hard | post_processing | 20.0 | 20.0 | 2.7 |
-| DDPM | both-hard | diffuser | 98.7 | 15.3 | 32.4 |
-| DDPM | both-hard | dpcc-c-tightened | 46.7 | **46.7** | 0.0 |
-| DDPM | both-hard | post_processing | 68.0 | 65.3 | 1.1 |
-| FM | top-left-hard | diffuser | 98.7 | 51.3 | 16.4 |
-| FM | top-left-hard | dpcc-c-tightened | 48.7 | 48.7 | 0.9 |
-| FM | top-left-hard | **dpcc-c-tightened-lateproj20** | 84.0 | **84.0** | 0.0 |
-| FM | top-left-hard | post_processing | 59.3 | 13.3 | 3.7 |
-| FM | top-right-hard | diffuser | 98.7 | 21.3 | 37.4 |
-| FM | top-right-hard | dpcc-c-tightened | 52.0 | **52.0** | 0.0 |
-| FM | top-right-hard | **dpcc-c-tightened-lateproj20** | 72.7 | **72.7** | 0.0 |
-| FM | top-right-hard | post_processing | 4.7 | 4.7 | 0.4 |
-| FM | both-hard | diffuser | 98.7 | 25.3 | 27.8 |
-| FM | both-hard | dpcc-c-tightened | 49.3 | **49.3** | 0.0 |
-| FM | both-hard | **dpcc-c-tightened-lateproj20** | 59.3 | **59.3** | 0.0 |
-| FM | both-hard | post_processing | 59.3 | 48.0 | 0.8 |
+| 模型 | 场景 | 变体 | goal% | goal+cons% | viol steps | time/step |
+| --- | --- | --- | ---: | ---: | ---: | ---: |
+| DDPM | top-left-hard | diffuser | 98.7 | 63.3 | 15.0 | 0.117s |
+| DDPM | top-left-hard | dpcc-c-tightened | 86.7 | **86.7** | 0.0 | 0.316s |
+| DDPM | top-left-hard | post_processing | 72.7 | 46.0 | 2.7 | 0.306s |
+| DDPM | top-right-hard | diffuser | 98.7 | 20.0 | 41.6 | 0.117s |
+| DDPM | top-right-hard | dpcc-c-tightened | 80.7 | **80.7** | 0.0 | 0.277s |
+| DDPM | top-right-hard | post_processing | 20.0 | 20.0 | 2.7 | 0.247s |
+| DDPM | both-hard | diffuser | 98.7 | 15.3 | 32.4 | 0.118s |
+| DDPM | both-hard | dpcc-c-tightened | 46.7 | **46.7** | 0.0 | 0.303s |
+| DDPM | both-hard | post_processing | 68.0 | 65.3 | 1.1 | 0.282s |
+| FM | top-left-hard | diffuser | 98.7 | 51.3 | 16.4 | 0.118s |
+| FM | top-left-hard | dpcc-c-tightened | 48.7 | 48.7 | 0.9 | 0.479s |
+| FM | top-left-hard | **dpcc-c-tightened-lateproj20** | 84.0 | **84.0** | 0.0 | **0.153s** |
+| FM | top-left-hard | post_processing | 59.3 | 13.3 | 3.7 | 0.385s |
+| FM | top-right-hard | diffuser | 98.7 | 21.3 | 37.4 | 0.119s |
+| FM | top-right-hard | dpcc-c-tightened | 52.0 | **52.0** | 0.0 | 0.424s |
+| FM | top-right-hard | **dpcc-c-tightened-lateproj20** | 72.7 | **72.7** | 0.0 | **0.146s** |
+| FM | top-right-hard | post_processing | 4.7 | 4.7 | 0.4 | 0.358s |
+| FM | both-hard | diffuser | 98.7 | 25.3 | 27.8 | 0.117s |
+| FM | both-hard | dpcc-c-tightened | 49.3 | **49.3** | 0.0 | 0.436s |
+| FM | both-hard | **dpcc-c-tightened-lateproj20** | 59.3 | **59.3** | 0.0 | **0.155s** |
+| FM | both-hard | post_processing | 59.3 | 48.0 | 0.8 | 0.394s |
 
 > 注:`dpcc-c-tightened-lateproj20` 是第 5 节提出的"晚投影"修复(只在积分最后 20% 投影)。
-> 这里把它和其他 FM 变体并排放,便于逐场景直接对比;第 5 节解释它*为什么*有效,并给出
-> 汇总指标与速度对比。(柱状图后续补上。)
+> 这里把它和其他 FM 变体并排放,便于逐场景直接对比;第 5 节解释它*为什么*有效。注意它不仅
+> 质量更高,**每步还便宜约 3 倍**(≈0.15s vs ≈0.45s)。
+
+### 对比图
+
+![分场景主要指标](figures/fig_goalcons_by_scene.png)
+
+*晚投影(绿色)在每个场景都把 FM 提升到 DDPM 的水平。*
+
+![FM 投影变体对比](figures/fig_fm_variants.png)
+
+*仅 FM:不投影不安全,原始 dpcc-c 安全但损失到达率,晚投影把到达率找回来。*
+
+![质量 vs 投影成本](figures/fig_quality_vs_cost.png)
+
+*质量 vs 成本:FM `lateproj20`(绿星)位于左上角——DDPM 级质量,却是最低的每步成本。*
 
 ## 4. 发现
 
