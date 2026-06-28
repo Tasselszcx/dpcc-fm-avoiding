@@ -139,8 +139,23 @@ projection cost.
 As a second extension axis, `scripts/eval.py` also accepts a `trustconstr` suffix that swaps
 the projection NLP solver from SLSQP to SciPy's `trust-constr` (interior-point / trust-region),
 via a new `scipy_method` argument on `Projector` (default `'SLSQP'`, so existing behavior is
-unchanged). This provides an alternative-solver comparison point; results are reported
-separately once the (substantially slower) `trust-constr` runs complete.
+unchanged). Smoke test (FM seed 0, top-right-hard, 10 trials): goal+cons = 0.90, zero
+violations, but **~10.6s per step — roughly 70x slower than SLSQP (~0.15s) for identical
+quality.** Conclusion: on this task SLSQP is strictly preferable and DPCC's efficacy is not
+solver-dependent, so no full `trust-constr` sweep was run.
+
+### Soft gradient guidance (`gradient`) — a negative result
+
+`scripts/eval.py` also exposes the model's existing `gradient` path (variant suffix
+`gradient`): instead of a hard projection onto the feasible set, the constraint gradient is
+*added to the velocity field* during the last fraction of ODE integration (soft guidance,
+no final projection). Smoke test (FM seed 0, **both-hard**, 10 trials): goal = 0.90 but
+**constraints satisfied only 0.10, with 29.6 violation steps per rollout** — essentially as
+unsafe as no projection at all (diffuser: 27.8 viol steps). Soft guidance nudges the trajectory
+toward feasibility but never guarantees it, so on the primary safety metric it is far worse than
+hard projection. This confirms that *enforcing* (projecting onto) the feasible set — not merely
+penalizing infeasibility — is what makes DPCC work. The late-projection schedule (`th0p2`)
+remains the recommended FM configuration.
 
 ## 6. Reproduction
 
