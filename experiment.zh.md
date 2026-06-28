@@ -62,13 +62,20 @@
 | DDPM | both-hard | post_processing | 68.0 | 65.3 | 1.1 |
 | FM | top-left-hard | diffuser | 98.7 | 51.3 | 16.4 |
 | FM | top-left-hard | dpcc-c-tightened | 48.7 | 48.7 | 0.9 |
+| FM | top-left-hard | **dpcc-c-tightened-lateproj20** | 84.0 | **84.0** | 0.0 |
 | FM | top-left-hard | post_processing | 59.3 | 13.3 | 3.7 |
 | FM | top-right-hard | diffuser | 98.7 | 21.3 | 37.4 |
 | FM | top-right-hard | dpcc-c-tightened | 52.0 | **52.0** | 0.0 |
+| FM | top-right-hard | **dpcc-c-tightened-lateproj20** | 72.7 | **72.7** | 0.0 |
 | FM | top-right-hard | post_processing | 4.7 | 4.7 | 0.4 |
 | FM | both-hard | diffuser | 98.7 | 25.3 | 27.8 |
 | FM | both-hard | dpcc-c-tightened | 49.3 | **49.3** | 0.0 |
+| FM | both-hard | **dpcc-c-tightened-lateproj20** | 59.3 | **59.3** | 0.0 |
 | FM | both-hard | post_processing | 59.3 | 48.0 | 0.8 |
+
+> 注:`dpcc-c-tightened-lateproj20` 是第 5 节提出的"晚投影"修复(只在积分最后 20% 投影)。
+> 这里把它和其他 FM 变体并排放,便于逐场景直接对比;第 5 节解释它*为什么*有效,并给出
+> 汇总指标与速度对比。(柱状图后续补上。)
 
 ## 4. 发现
 
@@ -108,23 +115,16 @@
 
 ### 结果:FM 使用 `dpcc-c-tightened-lateproj20`(3 种子 x 3 场景 x 50 试验)
 
+汇总(逐场景细分已并入上面第 3 节的主表,和其他 FM 变体并排便于直接对比):
+
 | 方法 | goal+cons% | viol steps | time/step |
 | --- | ---: | ---: | ---: |
 | FM `dpcc-c-tightened`(原始) | 0.50 | 0.0 | 0.45s |
 | **FM `dpcc-c-tightened-lateproj20`(修复)** | **0.72** | **0.0** | **0.151s** |
 | DDPM `dpcc-c-tightened`(参考) | 0.71 | 0.0 | 0.31s |
 
-分场景(FM `dpcc-c-tightened-lateproj20`,与第 3 节同格式):
-
-| 模型 | 场景 | 变体 | goal% | goal+cons% | viol steps |
-| --- | --- | --- | ---: | ---: | ---: |
-| FM | top-left-hard | dpcc-c-tightened-lateproj20 | 84.0 | **84.0** | 0.0 |
-| FM | top-right-hard | dpcc-c-tightened-lateproj20 | 72.7 | **72.7** | 0.0 |
-| FM | both-hard | dpcc-c-tightened-lateproj20 | 59.3 | **59.3** | 0.0 |
-
-对比原始 FM `dpcc-c-tightened`(分场景 48.7 / 52.0 / 49.3),三场景全面提升,连最难的
-both-hard 也从 49.3 -> 59.3。和所有 DPCC 变体一样,goal% 与 goal+cons% 相等(零违反),
-剩下的失败只是"没到达"。
+对比原始 FM `dpcc-c-tightened`(分场景 48.7 / 52.0 / 49.3,见第 3 节),三场景全面提升,
+连最难的 both-hard 也从 49.3 -> 59.3。
 
 **结果。** 晚投影调度把 FM 从 0.50 提升到 **0.72 goal+cons%**,追平 DDPM(0.71),
 同时保持零约束违反。它还比原始 FM 调度**快约 3 倍**、比 DDPM**快约 2 倍**

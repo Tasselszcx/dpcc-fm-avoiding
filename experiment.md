@@ -66,13 +66,21 @@ Total evaluation matrix: **2 models x 3 seeds x 3 scenes x 3 projection variants
 | DDPM | both-hard | post_processing | 68.0 | 65.3 | 1.1 |
 | FM | top-left-hard | diffuser | 98.7 | 51.3 | 16.4 |
 | FM | top-left-hard | dpcc-c-tightened | 48.7 | 48.7 | 0.9 |
+| FM | top-left-hard | **dpcc-c-tightened-lateproj20** | 84.0 | **84.0** | 0.0 |
 | FM | top-left-hard | post_processing | 59.3 | 13.3 | 3.7 |
 | FM | top-right-hard | diffuser | 98.7 | 21.3 | 37.4 |
 | FM | top-right-hard | dpcc-c-tightened | 52.0 | **52.0** | 0.0 |
+| FM | top-right-hard | **dpcc-c-tightened-lateproj20** | 72.7 | **72.7** | 0.0 |
 | FM | top-right-hard | post_processing | 4.7 | 4.7 | 0.4 |
 | FM | both-hard | diffuser | 98.7 | 25.3 | 27.8 |
 | FM | both-hard | dpcc-c-tightened | 49.3 | **49.3** | 0.0 |
+| FM | both-hard | **dpcc-c-tightened-lateproj20** | 59.3 | **59.3** | 0.0 |
 | FM | both-hard | post_processing | 59.3 | 48.0 | 0.8 |
+
+> Note: `dpcc-c-tightened-lateproj20` is the late-projection fix introduced in Section 5
+> (project only in the last 20% of integration). It is shown here alongside the other FM
+> variants for a direct per-scene comparison; Section 5 explains *why* it works and reports
+> the aggregate + speed numbers. (A bar-chart figure will be added later.)
 
 ## 4. Findings
 
@@ -122,23 +130,17 @@ alongside the existing `dt*` suffixes; the original `dpcc-c-tightened` is untouc
 
 ### Results: FM with `dpcc-c-tightened-lateproj20` (3 seeds x 3 scenes x 50 trials)
 
+Aggregate (the per-scene breakdown is folded into the Section 3 table above, right next to
+the other FM variants for a direct comparison):
+
 | Method | goal+cons% | viol steps | time/step |
 | --- | ---: | ---: | ---: |
 | FM `dpcc-c-tightened` (original) | 0.50 | 0.0 | 0.45s |
 | **FM `dpcc-c-tightened-lateproj20` (fixed)** | **0.72** | **0.0** | **0.151s** |
 | DDPM `dpcc-c-tightened` (reference) | 0.71 | 0.0 | 0.31s |
 
-Per-scene breakdown (FM `dpcc-c-tightened-lateproj20`, same format as Section 3):
-
-| Model | Scene | Variant | goal% | goal+cons% | viol steps |
-| --- | --- | --- | ---: | ---: | ---: |
-| FM | top-left-hard | dpcc-c-tightened-lateproj20 | 84.0 | **84.0** | 0.0 |
-| FM | top-right-hard | dpcc-c-tightened-lateproj20 | 72.7 | **72.7** | 0.0 |
-| FM | both-hard | dpcc-c-tightened-lateproj20 | 59.3 | **59.3** | 0.0 |
-
-Compared to the original FM `dpcc-c-tightened` (48.7 / 52.0 / 49.3 per scene), every scene
-improves, including the hardest both-hard (49.3 -> 59.3). As with all DPCC variants, goal%
-equals goal+cons% (zero violations), so the only remaining failures are "did not reach".
+Compared to the original FM `dpcc-c-tightened` (48.7 / 52.0 / 49.3 per scene; see Section 3),
+every scene improves, including the hardest both-hard (49.3 -> 59.3).
 
 **Outcome.** The late projection schedule lifts FM from 0.50 to **0.72 goal+cons%**, matching
 DDPM (0.71), while keeping zero constraint violations. It is also **~3x faster** than the
