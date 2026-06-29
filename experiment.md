@@ -57,15 +57,12 @@ Total evaluation matrix: **2 models x 3 seeds x 3 scenes x 3 projection variants
 | --- | --- | --- | ---: | ---: | ---: | ---: |
 | DDPM | top-left-hard | diffuser | 98.7 | 63.3 | 15.0 | 0.117s |
 | DDPM | top-left-hard | dpcc-c-tightened | 86.7 | **86.7** | 0.0 | 0.316s |
-| DDPM | top-left-hard | **dpcc-c-tightened-lateproj20** | 93.3 | **93.3** | 0.0 | **0.163s** |
 | DDPM | top-left-hard | post_processing | 72.7 | 46.0 | 2.7 | 0.306s |
 | DDPM | top-right-hard | diffuser | 98.7 | 20.0 | 41.6 | 0.117s |
 | DDPM | top-right-hard | dpcc-c-tightened | 80.7 | **80.7** | 0.0 | 0.277s |
-| DDPM | top-right-hard | **dpcc-c-tightened-lateproj20** | 100.0 | **100.0** | 0.0 | **0.164s** |
 | DDPM | top-right-hard | post_processing | 20.0 | 20.0 | 2.7 | 0.247s |
 | DDPM | both-hard | diffuser | 98.7 | 15.3 | 32.4 | 0.118s |
 | DDPM | both-hard | dpcc-c-tightened | 46.7 | **46.7** | 0.0 | 0.303s |
-| DDPM | both-hard | **dpcc-c-tightened-lateproj20** | 100.0 | **100.0** | 0.0 | **0.152s** |
 | DDPM | both-hard | post_processing | 68.0 | 65.3 | 1.1 | 0.282s |
 | FM | top-left-hard | diffuser | 98.7 | 51.3 | 16.4 | 0.118s |
 | FM | top-left-hard | dpcc-c-tightened | 48.7 | 48.7 | 0.9 | 0.479s |
@@ -81,11 +78,9 @@ Total evaluation matrix: **2 models x 3 seeds x 3 scenes x 3 projection variants
 | FM | both-hard | post_processing | 59.3 | 48.0 | 0.8 | 0.394s |
 
 > Note: `dpcc-c-tightened-lateproj20` is the late-projection schedule introduced in Section 5
-> (project only in the last 20% of integration). It is shown here alongside each scene's other
-> variants for a direct comparison; Section 5 explains *why* it works. It applies to **both**
-> backbones: on FM it is ~3x cheaper per step (≈0.15s vs ≈0.45s); on DDPM it both **lifts
-> goal+cons% (71.3 → 97.8 avg)** and roughly **halves cost** (≈0.16s vs ≈0.30s). Late projection
-> is the single best configuration for either prior on this task.
+> (project only in the last 20% of integration). It is shown here alongside the other FM
+> variants for a direct per-scene comparison; Section 5 explains *why* it works. Note it is
+> not only higher quality but also **~3x cheaper per step** (≈0.15s vs ≈0.45s).
 
 ### Figures
 
@@ -168,29 +163,6 @@ DDPM (0.71), while keeping zero constraint violations. It is also **~3x faster**
 original FM schedule and **~2x faster** than DDPM (0.151s vs 0.31s per step), because far fewer
 SLSQP solves are performed. This realizes FM's intended advantage: comparable quality at lower
 projection cost.
-
-### Late projection on DDPM too (3 seeds x 3 scenes x 50 trials)
-
-The same schedule was run on the DDPM backbone. It is not just an FM fix — it is the best
-configuration for DDPM as well, improving every scene *and* halving the per-step cost:
-
-| Scene | DDPM `dpcc-c-tightened` | **DDPM `lateproj20`** | time/step |
-| --- | ---: | ---: | ---: |
-| top-left-hard | 86.7 | **93.3** | 0.163s |
-| top-right-hard | 80.7 | **100.0** | 0.164s |
-| both-hard | 46.7 | **100.0** | 0.152s |
-| **avg** | **71.3** | **97.8** | **≈0.16s** |
-
-All cells keep **zero** violation steps. The both-hard scene — the hardest, where the original
-schedule collapsed to 46.7% — recovers fully to 100%. Why does DDPM gain even more than FM? The
-original schedule projects on every step of the last half of sampling; for DDPM each projection
-fights the next stochastic `p_sample` denoising step, so late projections still leave the chain
-time to drift before the final state. Concentrating projection in the last 20% lets the prior
-denoise cleanly first, then enforces constraints once, at the point where they actually bind.
-
-Combined headline: **late projection is the single recommended configuration for either prior**,
-DDPM 0.978 / FM 0.72 goal+cons%, zero violations, ≈0.15-0.16s/step (~2x faster than the original
-DPCC schedule on both).
 
 ### Additional projection backend (`cvxpyqp`) — a true convex-QP solver
 

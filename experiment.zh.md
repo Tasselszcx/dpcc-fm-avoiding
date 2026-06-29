@@ -53,15 +53,12 @@
 | --- | --- | --- | ---: | ---: | ---: | ---: |
 | DDPM | top-left-hard | diffuser | 98.7 | 63.3 | 15.0 | 0.117s |
 | DDPM | top-left-hard | dpcc-c-tightened | 86.7 | **86.7** | 0.0 | 0.316s |
-| DDPM | top-left-hard | **dpcc-c-tightened-lateproj20** | 93.3 | **93.3** | 0.0 | **0.163s** |
 | DDPM | top-left-hard | post_processing | 72.7 | 46.0 | 2.7 | 0.306s |
 | DDPM | top-right-hard | diffuser | 98.7 | 20.0 | 41.6 | 0.117s |
 | DDPM | top-right-hard | dpcc-c-tightened | 80.7 | **80.7** | 0.0 | 0.277s |
-| DDPM | top-right-hard | **dpcc-c-tightened-lateproj20** | 100.0 | **100.0** | 0.0 | **0.164s** |
 | DDPM | top-right-hard | post_processing | 20.0 | 20.0 | 2.7 | 0.247s |
 | DDPM | both-hard | diffuser | 98.7 | 15.3 | 32.4 | 0.118s |
 | DDPM | both-hard | dpcc-c-tightened | 46.7 | **46.7** | 0.0 | 0.303s |
-| DDPM | both-hard | **dpcc-c-tightened-lateproj20** | 100.0 | **100.0** | 0.0 | **0.152s** |
 | DDPM | both-hard | post_processing | 68.0 | 65.3 | 1.1 | 0.282s |
 | FM | top-left-hard | diffuser | 98.7 | 51.3 | 16.4 | 0.118s |
 | FM | top-left-hard | dpcc-c-tightened | 48.7 | 48.7 | 0.9 | 0.479s |
@@ -76,10 +73,9 @@
 | FM | both-hard | **dpcc-c-tightened-lateproj20** | 59.3 | **59.3** | 0.0 | **0.155s** |
 | FM | both-hard | post_processing | 59.3 | 48.0 | 0.8 | 0.394s |
 
-> 注:`dpcc-c-tightened-lateproj20` 是第 5 节提出的"晚投影"调度(只在积分/采样最后 20% 投影)。
-> 这里把它和每个场景的其他变体并排放,便于直接对比;第 5 节解释它*为什么*有效。它对**两种**
-> 骨干都适用:FM 上每步便宜约 3 倍(≈0.15s vs ≈0.45s);DDPM 上既**提升 goal+cons%(均值 71.3 →
-> 97.8)**,又把开销**砍掉约一半**(≈0.16s vs ≈0.30s)。晚投影是两种先验在本任务上的最佳配置。
+> 注:`dpcc-c-tightened-lateproj20` 是第 5 节提出的"晚投影"修复(只在积分最后 20% 投影)。
+> 这里把它和其他 FM 变体并排放,便于逐场景直接对比;第 5 节解释它*为什么*有效。注意它不仅
+> 质量更高,**每步还便宜约 3 倍**(≈0.15s vs ≈0.45s)。
 
 ### 对比图
 
@@ -148,26 +144,6 @@
 同时保持零约束违反。它还比原始 FM 调度**快约 3 倍**、比 DDPM**快约 2 倍**
 (每步 0.151s vs 0.31s),因为执行的 SLSQP 求解次数大幅减少。这实现了 FM 的预期优势:
 以更低的投影成本达到相当的质量。
-
-### 晚投影对 DDPM 同样有效(3 种子 x 3 场景 x 50 试验)
-
-把同一调度跑在 DDPM 骨干上。它不只是 FM 的修复——对 DDPM 也是最佳配置,每个场景都改善,
-并且每步开销减半:
-
-| 场景 | DDPM `dpcc-c-tightened` | **DDPM `lateproj20`** | time/step |
-| --- | ---: | ---: | ---: |
-| top-left-hard | 86.7 | **93.3** | 0.163s |
-| top-right-hard | 80.7 | **100.0** | 0.164s |
-| both-hard | 46.7 | **100.0** | 0.152s |
-| **均值** | **71.3** | **97.8** | **≈0.16s** |
-
-所有单元格都保持**零**违反步。最难的 both-hard——原调度在此崩到 46.7%——完全恢复到 100%。
-为什么 DDPM 获益比 FM 还大?原调度在采样后半段每一步都投影;对 DDPM 而言每次投影都要和随后的
-随机 `p_sample` 去噪步"对抗",所以即便较晚的投影,链路仍有时间在抵达终点前再次漂移。把投影集中
-到最后 20%,先让先验干净地去噪,再在约束真正起作用的位置一次性强制满足约束。
-
-综合结论:**晚投影是两种先验的唯一推荐配置**,DDPM 0.978 / FM 0.72 goal+cons%,零违反,
-每步约 0.15-0.16s(在两种骨干上都比原始 DPCC 调度快约 2 倍)。
 
 ### 补充投影后端(`cvxpyqp`)——一个真正的凸 QP 求解器
 
