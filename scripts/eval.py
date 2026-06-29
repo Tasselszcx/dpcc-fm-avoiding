@@ -256,6 +256,12 @@ for exp in exps:
                 #   (interior-point / trust-region) instead of the default 'SLSQP'.
                 scipy_method = 'trust-constr' if 'trustconstr' in variant else 'SLSQP'
 
+                # Optional alternative projection *backend*.
+                #   'cvxpyqp' in the variant name -> convex QP via cvxpy/OSQP with the
+                #   non-convex obstacle constraints linearized (SCP). Default 'scipy'
+                #   keeps the original general-NLP path unchanged.
+                projector_solver = 'cvxpy' if 'cvxpyqp' in variant else 'scipy'
+
                 # Create projector
                 project_every = config.get('flow_matching_project_every', 1) if diffusion.__class__.__name__ == 'FlowMatching' else 1
                 if override_project_every is not None:
@@ -264,7 +270,7 @@ for exp in exps:
                 if override_threshold is not None:
                     projector_kwargs['diffusion_timestep_threshold'] = override_threshold
                 projector = Projector(horizon=args.horizon, transition_dim=trajectory_dim, action_dim=action_dim, goal_dim=diffusion.goal_dim, constraint_list=constraints, normalizer=dataset.normalizer,
-                                        gradient=gradient, gradient_weights=[1, 0.5, 2], variant=diffuser_variant, dt=delta_t, cost_dims=None, device=args.device, solver='scipy',
+                                        gradient=gradient, gradient_weights=[1, 0.5, 2], variant=diffuser_variant, dt=delta_t, cost_dims=None, device=args.device, solver=projector_solver,
                                         scipy_maxiter=config.get('projection_scipy_maxiter', 1000), project_every=project_every, scipy_method=scipy_method, **projector_kwargs)
                 projector = None if variant == 'diffuser' else projector
 

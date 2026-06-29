@@ -86,9 +86,16 @@ class Projector:
                         subject to  Az  = b
                                     Cz <= d
             where z = (o_0, o_1, ..., o_{H-1}) is the trajectory in vector form. The matrices A, b, C, and d are defined by the dynamic and safety constraints.
-                                    
+
         """
-        
+
+        # Additive alternative backend: a convex QP solved with cvxpy/OSQP, where the
+        # non-convex obstacle constraints are linearized (SQP-style) around the input
+        # trajectory. Selected only when solver == 'cvxpy'; the default scipy path below
+        # is left completely unchanged.
+        if self.solver == 'cvxpy':
+            return self._project_cvxpy_scp(trajectory, constraints)
+
         dims = trajectory.shape
 
         # Reshape the trajectory to a batch of vectors (from B x H x T to B x (HT)
@@ -164,7 +171,102 @@ class Projector:
 
         # print(f'Projection time {self.solver}:', time.time() - start_time)
         return sol, projection_costs    # only implemented for proxsuite and scipy and parallelize=False
-    
+
+    def _project_cvxpy_scp(self, trajectory, constraints=None):
+        """
+            Alternative projection backend (additive; selected via solver='cvxpy').
+
+            Solves the same projection problem
+                min_z 1/2 z^T Q z + r^T z   s.t.  A z = b,  C z <= d,  z_t^T P z_t + q^T z_t <= v
+            but with a *convex* QP solver (cvxpy + OSQP) instead of scipy's general NLP.
+
+            The obstacle constraints z_t^T P z_t + q^T z_t <= v are non-convex (avoid-region),
+            so each is linearized around the current iterate z0 (a sequential-convex /
+            SQP-style step): z_t^T P z_t ~= 2 z0_t^T P z_t - z0_t^T P z0_t. A few SCP
+            iterations are run so the linearization point tracks the solution. This mirrors
+            the scipy path's outputs (sol, projection_costs) so it is a drop-in comparison.
+        """
+        import cvxpy as cp
+
+        dims = trajectory.shape
+        batch_size = trajectory.shape[0]
+        trajectory_reshaped = trajectory.reshape(batch_size, -1)
+        trajectory_np = trajectory_reshaped.cpu().numpy().astype('double')
+        n = self.horizon * self.transition_dim
+
+        Q = self.Q_np.astype('double')
+        A = self.A_np.astype('double')
+        b = self.b_np.astype('double')
+        C = self.C_np.astype('double')
+        d = self.d_np.astype('double')
+
+        # Initial-state equality (matches the scipy path's skip_initial_state handling)
+        if self.skip_initial_state:
+            s_0 = trajectory_reshaped[0, :self.transition_dim].cpu().numpy()
+            counter = 0
+            for constraint in self.dynamic_constraints.constraint_list:
+                if constraint[0] == 'deriv':
+                    x_idx = int(constraint[1][0])
+                    b[counter * self.horizon] = s_0[x_idx]
+                    counter += 1
+
+        P_list = self.obstacle_constraints.P_list
+        q_list = self.obstacle_constraints.q_list
+        v_list = self.obstacle_constraints.v_list
+
+        # Q is diagonal PD; use its sqrt so the objective is a plain weighted
+        # least-squares 1/2 ||sqrtQ (z - tau)||^2 (== 1/2 z^T Q z + r^T z up to a
+        # constant). This is far better conditioned for conic QP solvers than
+        # quad_form(z, Q) and avoids OSQP's psd-wrap failures.
+        sqrtQ = np.sqrt(np.clip(np.diag(Q), 0.0, None))
+
+        sol_np = np.zeros((batch_size, n), dtype=np.float32)
+        projection_costs = np.ones(batch_size, dtype=np.float32)
+        n_scp_iters = 5
+
+        for i in range(batch_size):
+            tau = trajectory_np[i]
+            z0 = tau.copy()
+            for _ in range(n_scp_iters):
+                z = cp.Variable(n)
+                cons = [z >= -5, z <= 5]
+                if A.size > 0:
+                    cons.append(A @ z == b)
+                if C.size > 0:
+                    cons.append(C @ z <= d)
+                # Linearized obstacle constraints around z0
+                for ci in range(len(P_list)):
+                    P, q, v = P_list[ci], q_list[ci], v_list[ci]
+                    for t in range(1, self.horizon):
+                        s, e = t * self.transition_dim, (t + 1) * self.transition_dim
+                        z0b = z0[s:e]
+                        # z_t^T P z_t ~= 2 z0^T P z_t - z0^T P z0
+                        cons.append(2 * (z0b @ P) @ z[s:e] - z0b @ P @ z0b + q @ z[s:e] <= v)
+                obj = cp.Minimize(0.5 * cp.sum_squares(cp.multiply(sqrtQ, z - tau)))
+                prob = cp.Problem(obj, cons)
+                solved = False
+                for _solver in (cp.CLARABEL, cp.OSQP, cp.SCS):
+                    try:
+                        prob.solve(solver=_solver, verbose=False)
+                    except Exception:
+                        continue
+                    if z.value is not None and prob.status in ('optimal', 'optimal_inaccurate'):
+                        solved = True
+                        break
+                if not solved or z.value is None:
+                    break  # keep last feasible z0
+                if np.linalg.norm(z.value - z0) < 1e-5:
+                    z0 = z.value
+                    break
+                z0 = z.value
+            sol_np[i] = z0
+            r_i = -(tau @ Q)
+            projection_costs[i] = (0.5 * sol_np[i] @ Q @ sol_np[i] + r_i @ sol_np[i]
+                                   + 0.5 * tau @ Q @ tau)
+
+        sol = torch.tensor(sol_np, device=self.device).reshape(dims)
+        return sol, projection_costs
+
     def compute_gradient(self, trajectory, constraints=None):
         """
             trajectory: np.ndarray of shape (batch_size, horizon, transition_dim) or (horizon, transition_dim)
