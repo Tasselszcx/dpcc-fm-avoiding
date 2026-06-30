@@ -177,40 +177,38 @@ current iterate (`z_t^T P z_t ≈ 2 z0_t^T P z_t - z0_t^T P z0_t`) and the QP is
 sequential-convex (SCP) iterations. The objective is written as a well-conditioned weighted
 least-squares `1/2||sqrtQ·(z-tau)||^2` so the conic solvers stay numerically stable.
 
-Smoke tests (FM seed 0, late-projection schedule):
+Full sweep on **both backbones** (3 seeds x 3 scenes x 50 trials, late-projection schedule),
+with single-process (idle-machine) timing:
 
-| Scene | trials | goal+cons% | viol steps | time/step |
+| Backbone | goal% | goal+cons% | viol steps | time/step |
 | --- | ---: | ---: | ---: | ---: |
-| top-right-hard | 5 | 1.00 | 0.0 | 0.611s |
-| both-hard | 10 | 0.70 | 0.0 | 0.591s |
+| FM   `cvxpyqp` | 77.3 | **74.0** | 0.4 | 0.542s |
+| DDPM `cvxpyqp` | 73.1 | **72.7** | 0.1 | 0.616s |
 
-**Quality is identical to SLSQP (zero violations, same goal+cons within smoke noise), confirming
-DPCC's efficacy is solver-independent.** The cost is ~4x SLSQP (≈0.6s vs ≈0.15s) because 5 SCP
-sub-solves of a conic program are run per projection. So like `trust-constr`, the convex-QP route
-is a useful correctness cross-check but not a speed win on this task; SLSQP remains the default.
-
-### Additional projection solver (`trust-constr`)
-
-As a second extension axis, `scripts/eval.py` also accepts a `trustconstr` suffix that swaps
-the projection NLP solver from SLSQP to SciPy's `trust-constr` (interior-point / trust-region),
-via a new `scipy_method` argument on `Projector` (default `'SLSQP'`, so existing behavior is
-unchanged). Smoke test (FM seed 0, top-right-hard, 10 trials): goal+cons = 0.90, zero
-violations, but **~10.6s per step — roughly 70x slower than SLSQP (~0.15s) for identical
-quality.** Conclusion: on this task SLSQP is strictly preferable and DPCC's efficacy is not
-solver-dependent, so no full `trust-constr` sweep was run.
+**Quality matches the SLSQP baseline (near-zero violations, goal+cons 74.0 / 72.7 vs SLSQP
+72.0 / 71.3), confirming DPCC's efficacy is solver-independent.** The cost is ~4x SLSQP
+(≈0.55-0.62s vs ≈0.14s) because 5 SCP sub-solves of a conic program are run per projection.
+The convex-QP route is a useful correctness cross-check but not a speed win on this task;
+SLSQP remains the default.
 
 ### Soft gradient guidance (`gradient`) — a negative result
 
 `scripts/eval.py` also exposes the model's existing `gradient` path (variant suffix
 `gradient`): instead of a hard projection onto the feasible set, the constraint gradient is
 *added to the velocity field* during the last fraction of ODE integration (soft guidance,
-no final projection). Smoke test (FM seed 0, **both-hard**, 10 trials): goal = 0.90 but
-**constraints satisfied only 0.10, with 29.6 violation steps per rollout** — essentially as
-unsafe as no projection at all (diffuser: 27.8 viol steps). Soft guidance nudges the trajectory
-toward feasibility but never guarantees it, so on the primary safety metric it is far worse than
-hard projection. This confirms that *enforcing* (projecting onto) the feasible set — not merely
-penalizing infeasibility — is what makes DPCC work. The late-projection schedule (`lateproj20`)
-remains the recommended FM configuration.
+no final projection). Full sweep on **both backbones** (3 seeds x 3 scenes x 50 trials):
+
+| Backbone | goal% | goal+cons% | viol steps | time/step |
+| --- | ---: | ---: | ---: | ---: |
+| FM   `gradient` | 98.7 | 32.7 | 27.2 | 0.115s |
+| DDPM `gradient` | 98.9 | 33.1 | 30.4 | 0.127s |
+
+Goal is high (~99%) but **constraints are satisfied only ~33%, with ~27-30 violation steps per
+rollout** — essentially as unsafe as no projection at all (diffuser: ~28 viol steps). Soft
+guidance nudges the trajectory toward feasibility but never guarantees it, so on the primary
+safety metric it is far worse than hard projection. This confirms that *enforcing* (projecting
+onto) the feasible set — not merely penalizing infeasibility — is what makes DPCC work. The
+late-projection schedule (`lateproj20`) remains the recommended FM configuration.
 
 ## 6. Reproduction
 
