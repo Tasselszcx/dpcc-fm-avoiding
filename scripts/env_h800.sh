@@ -20,4 +20,11 @@ export WANDB_MODE="${WANDB_MODE:-disabled}"
 source "$HOME/miniconda3/etc/profile.d/conda.sh"
 conda activate dpcc-fm
 
+# 非交互 bash 脚本里 conda activate 的 PATH 前插可能被上面钉死的 /usr/bin 压住，
+# 导致 `python` 解析成系统 python（缺 diffusers/minari）。此处显式把当前 env 的
+# bin 补到 PATH 最前，幂等且不影响交互场景。
+if [ -n "$CONDA_PREFIX" ]; then
+  export PATH="$CONDA_PREFIX/bin:$PATH"
+fi
+
 echo "[env_h800] conda=$CONDA_DEFAULT_ENV python=$(which python)"

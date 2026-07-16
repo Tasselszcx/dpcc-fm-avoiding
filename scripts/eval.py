@@ -107,6 +107,28 @@ for exp in exps:
             if os.environ.get('EVAL_MAX_EPISODE_LENGTH'):
                 args.max_episode_length = int(os.environ['EVAL_MAX_EPISODE_LENGTH'])
 
+            # Evaluate a retrained native low-step DDPM: redirect the load path (and the
+            # plan/results savepath) from the config default K=20 to K=<EVAL_NDIFF>, so we
+            # load the H..._K<K>_... weights and write results under the matching K dir.
+            if os.environ.get('EVAL_NDIFF'):
+                import re as _re
+                _k = int(os.environ['EVAL_NDIFF'])
+                args.n_diffusion_steps = _k
+                args.diffusion_loadpath = _re.sub(r'_K\d+_', f'_K{_k}_', args.diffusion_loadpath)
+                args.exp_name = _re.sub(r'_K\d+_', f'_K{_k}_', args.exp_name)
+                args.savepath = _re.sub(r'_K\d+_', f'_K{_k}_', args.savepath)
+                print(f'[ eval ] EVAL_NDIFF={_k}: loadpath={args.diffusion_loadpath} savepath={args.savepath}')
+
+            # Override the planning horizon H to load H..._K..._ weights trained at that H.
+            if os.environ.get('EVAL_HORIZON'):
+                import re as _re
+                _h = int(os.environ['EVAL_HORIZON'])
+                args.horizon = _h
+                args.diffusion_loadpath = _re.sub(r'H\d+_', f'H{_h}_', args.diffusion_loadpath)
+                args.exp_name = _re.sub(r'H\d+_', f'H{_h}_', args.exp_name)
+                args.savepath = _re.sub(r'H\d+_', f'H{_h}_', args.savepath)
+                print(f'[ eval ] EVAL_HORIZON={_h}: loadpath={args.diffusion_loadpath} savepath={args.savepath}')
+
             save_path = _tag_save_path(
                 f'{args.savepath}/results/halfspace_{halfspace_variant}' if 'avoiding' in exp else f'{args.savepath}/results'
             )
@@ -115,6 +137,29 @@ for exp in exps:
             diffusion_experiment = utils.load_diffusion(args.loadbase, args.dataset, args.diffusion_loadpath, str(args.seed), epoch=args.diffusion_epoch, device=args.device)
             diffusion = diffusion_experiment.diffusion
             dataset = diffusion_experiment.dataset
+
+            # --- Optional inference-time override of the number of sampling steps K ---
+            # For Flow Matching the sampling step count is decoupled from the trained
+            # weights: sampling uses dt = 1/n_timesteps over the ODE, so the same weights
+            # can be integrated with a different number of Euler steps at inference. This
+            # lets us sweep K (K=20/15/10/5/2) without retraining. Only takes effect when
+            # EVAL_FM_NTIMESTEPS is set; default behavior is unchanged.
+            if os.environ.get('EVAL_FM_NTIMESTEPS') and diffusion.__class__.__name__ == 'FlowMatching':
+                _k = int(os.environ['EVAL_FM_NTIMESTEPS'])
+                diffusion.n_timesteps = _k
+                print(f'[ eval ] FM sampling steps overridden to K={_k}')
+
+            # --- Optional DDIM sampling for the DDPM (GaussianDiffusion) model ---
+            # DDIM is a deterministic (eta=0 by default) sampler that subsamples
+            # EVAL_DDIM_STEPS timesteps from the trained K schedule, giving few-step
+            # DDPM sampling WITHOUT retraining. This is the fair-comparison baseline
+            # against the FM K-sweep. Only takes effect when EVAL_DDIM_STEPS is set.
+            if os.environ.get('EVAL_DDIM_STEPS') and diffusion.__class__.__name__ == 'GaussianDiffusion':
+                diffusion.use_ddim = True
+                diffusion.ddim_steps = int(os.environ['EVAL_DDIM_STEPS'])
+                if os.environ.get('EVAL_DDIM_ETA'):
+                    diffusion.ddim_eta = float(os.environ['EVAL_DDIM_ETA'])
+                print(f'[ eval ] DDIM enabled: steps={diffusion.ddim_steps} eta={diffusion.ddim_eta} (trained K={diffusion.n_timesteps})')
 
             if 'pointmaze' in dataset_exp or 'antmaze' in dataset_exp:
                 minari_dataset = minari.load_dataset(dataset_exp, download=True)

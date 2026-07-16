@@ -44,6 +44,30 @@ for seed in seeds:
         args.n_train_steps = int(float(os.environ['TRAIN_STEPS']))
     if os.environ.get('TRAIN_STEPS_PER_EPOCH'):
         args.n_steps_per_epoch = int(float(os.environ['TRAIN_STEPS_PER_EPOCH']))
+    # Override the number of diffusion steps K to train a native low-step DDPM.
+    # parse_args already froze exp_name/savepath from the config's K=20, so after
+    # changing n_diffusion_steps we must rebuild exp_name (H{h}_K{K}_D{diff}) and
+    # savepath so each K trains into its own dir and never clobbers the K=20 model.
+    if os.environ.get('TRAIN_NDIFF'):
+        import re as _re
+        _newk = int(os.environ['TRAIN_NDIFF'])
+        args.n_diffusion_steps = _newk
+        args.exp_name = _re.sub(r'_K\d+_', f'_K{_newk}_', args.exp_name)
+        args.savepath = os.path.join(args.logbase, args.dataset, args.exp_name, str(args.seed))
+        os.makedirs(args.savepath, exist_ok=True)
+        print(f'[ train ] n_diffusion_steps overridden to K={_newk}; savepath={args.savepath}')
+
+    # Override the planning horizon H (mirrors TRAIN_NDIFF). The exp_name pattern is
+    # H{horizon}_K{K}_D{diffusion}; rebuild it so each H trains into its own dir and
+    # never clobbers the H=8 models.
+    if os.environ.get('TRAIN_HORIZON'):
+        import re as _re
+        _newh = int(os.environ['TRAIN_HORIZON'])
+        args.horizon = _newh
+        args.exp_name = _re.sub(r'H\d+_', f'H{_newh}_', args.exp_name)
+        args.savepath = os.path.join(args.logbase, args.dataset, args.exp_name, str(args.seed))
+        os.makedirs(args.savepath, exist_ok=True)
+        print(f'[ train ] horizon overridden to H={_newh}; savepath={args.savepath}')
 
     # 覆盖 device：如果 config 设置了 cuda 但本机没有 CUDA，自动降级
     if 'cuda' in getattr(args, 'device', '') and not torch.cuda.is_available():

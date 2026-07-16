@@ -35,6 +35,14 @@ class GaussianDiffusion(nn.Module):
         self.clip_denoised = clip_denoised
         self.predict_epsilon = predict_epsilon
 
+        # DDIM sampling controls (defaults preserve the original stochastic DDPM path).
+        # When use_ddim is True, conditional_sample dispatches to a deterministic
+        # (eta=0 by default) DDIM sampler that subsamples ddim_steps timesteps from
+        # the trained K=n_timesteps schedule -- no retraining required.
+        self.use_ddim = False
+        self.ddim_steps = None
+        self.ddim_eta = 0.0
+
         self.register_buffer('betas', betas)
         self.register_buffer('alphas_cumprod', alphas_cumprod)
         self.register_buffer('alphas_cumprod_prev', alphas_cumprod_prev)
@@ -202,6 +210,102 @@ class GaussianDiffusion(nn.Module):
         return x, infos
 
     @torch.no_grad()
+    def ddim_sample_loop(self, shape, cond, returns=None, return_diffusion=False,
+                         projector=None, constraints=None, repeat_last=0):
+        '''
+            Deterministic DDIM sampling (Song et al., 2021). Reuses the trained
+            epsilon network and the K=n_timesteps noise schedule, but integrates the
+            reverse process over only `ddim_steps` timesteps subsampled from
+            {0, ..., n_timesteps-1}. With ddim_eta == 0 the reverse process is fully
+            deterministic. Projection is applied with the same gating as the DDPM
+            p_sample_loop so that this is a like-for-like baseline under projection.
+
+            Implementation note: this codebase's DDPM uses a non-standard variance-
+            reduced sampler (0.5*randn init and 0.5-scaled reverse noise), so the
+            closed-form DDIM x0->x_prev jump is not self-consistent with the trained
+            eps-network here. We instead use *respaced* ancestral sampling: for each
+            adjacent pair (t_cur, t_prev) in the subsampled schedule we form the exact
+            DDPM posterior mean of the strided transition (beta' = 1 - a_cur/a_prev),
+            which reduces to the trained per-step posterior when ddim_steps == K and,
+            with eta == 0, gives deterministic few-step sampling.
+        '''
+        device = self.betas.device
+        batch_size = shape[0]
+
+        n_steps = self.ddim_steps or self.n_timesteps
+        n_steps = min(int(n_steps), self.n_timesteps)
+        # Evenly spaced subset of the trained timesteps, ascending unique.
+        seq = np.linspace(0, self.n_timesteps - 1, n_steps)
+        seq = np.unique(np.round(seq).astype(int))
+        seq = list(seq)
+        seq_next = [-1] + seq[:-1]            # previous (lower-noise) timestep for each
+
+        # Match the stochastic DDPM sampler's terminal-latent scale (0.5*randn); the
+        # trained eps-network is calibrated to this manifold (verified: full-step
+        # deterministic ancestral sampling reproduces the DDPM success rate).
+        x = 0.5 * torch.randn(shape, device=device)
+        x = apply_conditioning(x, cond, self.action_dim, goal_dim=self.goal_dim)
+
+        if return_diffusion: diffusion = [x]
+        costs = {}
+
+        for t_cur, t_prev in zip(reversed(seq), reversed(seq_next)):
+            timesteps = torch.full((batch_size,), t_cur, device=device, dtype=torch.long)
+
+            # Predict epsilon (mirror p_mean_variance's classifier-free-guidance branch)
+            if self.returns_condition:
+                eps_cond = self.model(x, cond, timesteps, returns, use_dropout=False)
+                eps_uncond = self.model(x, cond, timesteps, returns, force_dropout=True)
+                epsilon = eps_uncond + self.condition_guidance_w * (eps_cond - eps_uncond)
+            else:
+                epsilon = self.model(x, cond, timesteps)
+
+            x0 = self.predict_start_from_noise(x, t=timesteps, noise=epsilon)
+            if self.clip_denoised:
+                x0.clamp_(-1., 1.)
+
+            # Optional gradient-based projection (dpcc-r / gradient variants). No-op for
+            # the per-step minimum-projection-cost variant where projector.gradient=False.
+            if projector is not None and projector.gradient and t_cur <= projector.diffusion_timestep_threshold * self.n_timesteps:
+                if self.goal_dim > 0:
+                    x0[:, :, :-self.goal_dim] = x0[:, :, :-self.goal_dim] + projector.compute_gradient(x0[:, :, :-self.goal_dim], constraints)
+                else:
+                    x0 = x0 + projector.compute_gradient(x0, constraints)
+
+            # Respaced DDPM posterior mean for the strided transition t_cur -> t_prev.
+            a_cur = self.alphas_cumprod[t_cur]
+            a_prev = self.alphas_cumprod[t_prev] if t_prev >= 0 else torch.ones((), device=device)
+            beta_str = 1. - a_cur / a_prev                      # equivalent one-step beta
+            coef_x0 = beta_str * a_prev.sqrt() / (1. - a_cur)
+            coef_xt = (1. - a_prev) * (a_cur / a_prev).sqrt() / (1. - a_cur)
+            x = coef_x0 * x0 + coef_xt * x
+
+            # Optional stochasticity (eta>0); eta==0 keeps the sampler deterministic.
+            if self.ddim_eta > 0 and t_prev >= 0:
+                post_var = beta_str * (1. - a_prev) / (1. - a_cur)
+                x = x + self.ddim_eta * post_var.clamp(min=0).sqrt() * 0.5 * torch.randn_like(x)
+
+            x = apply_conditioning(x, cond, self.action_dim, goal_dim=self.goal_dim)
+
+            # Hard projection with the same timestep gating as p_sample_loop.
+            if projector is not None and not projector.gradient and t_cur <= projector.diffusion_timestep_threshold * self.n_timesteps:
+                if self.goal_dim > 0:
+                    x[:, :, :-self.goal_dim], projection_costs = projector.project(x[:, :, :-self.goal_dim], constraints)
+                    costs[t_cur] = projection_costs
+                else:
+                    x, projection_costs = projector.project(x, constraints)
+                    costs[t_cur] = projection_costs
+                x = apply_conditioning(x, cond, self.action_dim, goal_dim=self.goal_dim)
+
+            if return_diffusion: diffusion.append(x)
+
+        infos = {}
+        if return_diffusion: infos['diffusion'] = torch.stack(diffusion, dim=1)
+        infos['projection_costs'] = costs
+
+        return x, infos
+
+    @torch.no_grad()
     def conditional_sample(self, cond, returns=None, horizon=None, *args, **kwargs):
         '''
             conditions : [ (time, state), ... ]
@@ -211,6 +315,8 @@ class GaussianDiffusion(nn.Module):
         horizon = horizon or self.horizon
         shape = (batch_size, horizon, self.transition_dim)
 
+        if self.use_ddim:
+            return self.ddim_sample_loop(shape, cond, returns, *args, **kwargs)
         return self.p_sample_loop(shape, cond, returns, *args, **kwargs)
 
     def grad_p_sample(self, x, cond, t, returns=None):
