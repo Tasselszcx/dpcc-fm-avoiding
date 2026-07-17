@@ -7,10 +7,14 @@ __pycache__/
 
 # Runtime outputs
 logs/
+run_logs/
 wandb/
 *.log
 MUJOCO_LOG.TXT
 args.json
+
+# Reference papers / large binaries (keep out of the repo)
+*.pdf
 
 # Large/generated archives and checkpoints
 *.tar.gz
