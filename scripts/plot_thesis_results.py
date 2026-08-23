@@ -11,6 +11,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
+from matplotlib.patches import Patch
 import numpy as np
 
 from thesis_plot_style import (
@@ -79,7 +80,13 @@ def main_sweep(base: Path):
 def plot_main_results(base: Path, output_dir: Path) -> None:
     values = main_sweep(base)
     apply_paper_style()
-    fig, axes = plt.subplots(2, 2, figsize=(7.25, 5.2), sharex="col")
+    fig, axes = plt.subplots(
+        2,
+        2,
+        figsize=(7.25, 5.2),
+        sharex="col",
+        sharey="row",
+    )
     x = np.arange(len(KS))
     method_style = {
         "fm": dict(color=COLORS["fm"], fill=COLORS["fm_fill"], marker="o", linestyle="-"),
@@ -173,26 +180,27 @@ def plot_main_results(base: Path, output_dir: Path) -> None:
     panel_label(axes[0, 1], "(b)")
     panel_label(axes[1, 0], "(c)")
     panel_label(axes[1, 1], "(d)")
+    selected_handle = Line2D(
+        [0],
+        [0],
+        marker="o",
+        markersize=7.5,
+        markerfacecolor="none",
+        markeredgecolor=COLORS["accent"],
+        markeredgewidth=1.15,
+        linestyle="none",
+        label="Selected operating point",
+    )
     fig.legend(
-        handles=method_legend_handles(),
+        handles=[*method_legend_handles(), selected_handle],
         loc="upper center",
         bbox_to_anchor=(0.5, 1.015),
-        ncol=2,
+        ncol=3,
         borderpad=0.35,
         handlelength=2.4,
         columnspacing=1.4,
     )
-    fig.text(
-        0.985,
-        0.505,
-        "Shading: $\pm$1 sample SD across three training seeds",
-        rotation=90,
-        va="center",
-        ha="right",
-        fontsize=6.7,
-        color=COLORS["secondary_text"],
-    )
-    fig.subplots_adjust(left=0.105, right=0.95, bottom=0.105, top=0.9, wspace=0.25, hspace=0.16)
+    fig.subplots_adjust(left=0.105, right=0.985, bottom=0.105, top=0.9, wspace=0.2, hspace=0.16)
     save_figure(fig, output_dir, "main_results_k_sweep")
     plt.close(fig)
 
@@ -266,24 +274,21 @@ def plot_projection_window(base: Path, output_dir: Path) -> None:
 
     panel_label(axes[0], "(a)")
     panel_label(axes[1], "(b)")
-    axes[0].text(
-        3,
-        97.5,
-        "default window",
-        ha="center",
-        va="top",
-        fontsize=6.8,
-        color=COLORS["accent"],
-    )
     handles = [
         Line2D([0], [0], color=COLORS["ddpm"], marker="s", markerfacecolor="white", label="Mean"),
         Line2D([0], [0], color=COLORS["light_axis"], marker="o", markerfacecolor="white", label="Training seed"),
+        Patch(
+            facecolor=COLORS["accent_fill"],
+            edgecolor="none",
+            alpha=0.35,
+            label=r"Default window ($q=0.5$)",
+        ),
     ]
     fig.legend(
         handles=handles,
         loc="upper center",
         bbox_to_anchor=(0.5, 1.035),
-        ncol=2,
+        ncol=3,
         borderpad=0.35,
         handlelength=2.2,
         columnspacing=1.4,
